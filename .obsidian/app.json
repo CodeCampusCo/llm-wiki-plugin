@@ -1,0 +1,9 @@
+{
+  "userIgnoreFilters": [
+    "CLAUDE.md",
+    "CLAUDE-video-ingest.md",
+    "README.md",
+    "docs/",
+    "archive/"
+  ]
+}
