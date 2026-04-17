@@ -113,12 +113,13 @@ ls "$DERIVED"/video.*.srt 2>/dev/null
 
 If there's a non-auto SRT, convert it to the wiki's transcript format:
 
-```python
-# Run as a short Python snippet or shell one-liner
-python3 - <<'PY'
-import re, pathlib, json
+```bash
+# Run as a short Python snippet. Shell vars are passed via env so the
+# heredoc stays single-quoted (safest — no accidental $-expansion inside Python).
+DERIVED="$DERIVED" python3 - <<'PY'
+import os, re, pathlib, json
 
-derived = pathlib.Path("$DERIVED")
+derived = pathlib.Path(os.environ["DERIVED"])
 srt = next(derived.glob("video.*.srt"))
 lines = srt.read_text().splitlines()
 
@@ -204,10 +205,10 @@ This drops one JPEG every `$KEYFRAME_EVERY` seconds, numbered sequentially. For 
 Rename frames to include their timestamp:
 
 ```bash
-python3 - <<'PY'
+DERIVED="$DERIVED" KEYFRAME_EVERY="$KEYFRAME_EVERY" python3 - <<'PY'
 import os, pathlib
-derived = pathlib.Path("$DERIVED/keyframes")
-every = $KEYFRAME_EVERY
+derived = pathlib.Path(os.environ["DERIVED"]) / "keyframes"
+every = int(os.environ["KEYFRAME_EVERY"])
 for f in sorted(derived.glob("frame-*.jpg")):
     idx = int(f.stem.split("-")[1]) - 1
     secs = idx * every
@@ -240,9 +241,9 @@ scenedetect -i "$DERIVED/video.mp4" \
 Extract the important fields from `video.info.json` and write a clean `metadata.json`:
 
 ```bash
-python3 - <<'PY'
-import json, pathlib, datetime
-derived = pathlib.Path("$DERIVED")
+DERIVED="$DERIVED" LANG="$LANG" KEEP_RAW="$KEEP_RAW" python3 - <<'PY'
+import os, json, pathlib, datetime
+derived = pathlib.Path(os.environ["DERIVED"])
 info = json.loads((derived / "video.info.json").read_text())
 
 meta = {
@@ -252,10 +253,10 @@ meta = {
     "author_url": info.get("channel_url") or info.get("uploader_url"),
     "published_date": info.get("upload_date"),  # YYYYMMDD
     "duration_seconds": info.get("duration"),
-    "language": "$LANG",
+    "language": os.environ["LANG"],
     "transcript_source": "TO_FILL",  # set to whisper | youtube-auto | youtube-manual
     "ingest_date": datetime.date.today().isoformat(),
-    "has_raw_archive": "$KEEP_RAW" == "archive",
+    "has_raw_archive": os.environ["KEEP_RAW"] == "archive",
 }
 (derived / "metadata.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
 print(json.dumps(meta, indent=2, ensure_ascii=False))

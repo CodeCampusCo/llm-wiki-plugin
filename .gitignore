@@ -13,6 +13,10 @@ Thumbs.db
 .obsidian/workspace-mobile.json
 .obsidian/cache
 
+# Claude Code — personal overrides (permissions, env-specific settings).
+# Project-level config lives in .claude/settings.json and IS committed.
+.claude/settings.local.json
+
 # Scratch space
 scratch/
 *.tmp

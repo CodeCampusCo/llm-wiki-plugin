@@ -13,21 +13,26 @@ The template is in a "usable for personal experimentation, Slack integration pla
 
 The owner (Bom) is about to start using it personally to validate the schema before any team/Slack work happens.
 
-## Current state (as of 2026-04-11)
+## Current state (as of 2026-04-18)
 
 ### What's done
 
 - Core template structure (`CLAUDE.md`, `README.md`, `wiki/`, `raw/`, `.gitignore`).
 - Three-tier storage model documented and working: `wiki/` (git, markdown-only) → `raw/` (cloud drive, binaries + derived artifacts) → `archive/` (optional external, rarely-accessed originals).
 - Video ingestion playbook (`CLAUDE-video-ingest.md`) with actual shell commands for yt-dlp → whisper → ffmpeg keyframes → derived artifacts.
-- Image ingestion flow documented inside `CLAUDE.md`.
-- Four operations defined: **Ingest / Query / Lint / Act**. Act has mandatory human-in-the-loop approval.
+- Image ingestion flow documented in `docs/operations/ingest.md` (moved from inline in `CLAUDE.md` during the 2026-04-18 refactor).
+- **Five operations defined**: Ingest / Query / Lint / **Act** / **Prune**. Act and Prune both enforce human-in-the-loop approval.
 - Tool-agnostic Connected-tools registry inside `CLAUDE.md` (fill-in-the-blank — no specific MCP vendors hardcoded).
+- Slash commands for all five operations under `.claude/commands/` — `/ingest`, `/query`, `/lint`, `/act`, `/prune`. Each delegates to `CLAUDE.md` for the full workflow.
+- Claude Code hooks wired in `.claude/settings.json`:
+  - `SessionStart` → prints last 5 log entries + qmd status for continuity.
+  - `PostToolUse` on `Write|Edit` → auto-runs `qmd update` when wiki/ files are edited.
+- `CLAUDE.md` split (2026-04-18): the core-schema file stayed ~450 lines, with the long workflows moved to `docs/operations/ingest.md`, `docs/operations/prune.md`, and `docs/slack-mode.md`. High-level contracts + pointers remain inline in `CLAUDE.md`.
 - Two example source pages (one text, one video) showing both patterns. The video page demonstrates the "discrepancies from primary source" pattern.
 - Three example concept pages and three example entity pages.
 - Bootstrap `index.md` and `log.md`.
 - Slack bot architecture + UX patterns documented in `docs/` (planning only, not built).
-- `CLAUDE.md` has a `## Slack bot integration` section that activates only when a bot preamble tells the agent it's running in Slack mode. No effect on local use.
+- Slack mode rules live in `docs/slack-mode.md`, activated only when a bot preamble tells the agent it's running in Slack mode. No effect on local use — `CLAUDE.md` keeps only a ~15-line activation summary.
 
 ### What's intentionally not done
 
@@ -41,12 +46,28 @@ The owner (Bom) is about to start using it personally to validate the schema bef
 
 ```
 llm-wiki-template/
-├── CLAUDE.md                       # schema + operations, read every session
-├── CLAUDE-video-ingest.md          # detailed video workflow
+├── CLAUDE.md                       # schema (core), read every session — ~450 lines
+├── CLAUDE-video-ingest.md          # detailed video workflow (shell commands)
 ├── README.md                       # human-facing overview, quick start, sync tips
 ├── .gitignore
+├── .claude/
+│   ├── settings.json               # project-level config (hooks — committed)
+│   ├── settings.local.json         # personal config (permissions — typically git-ignored)
+│   ├── commands/                   # slash commands — /ingest, /query, /lint, /act, /prune
+│   │   ├── ingest.md
+│   │   ├── query.md
+│   │   ├── lint.md
+│   │   ├── act.md
+│   │   └── prune.md
+│   └── hooks/
+│       ├── session-start-context.sh    # prints recent log entries at session start
+│       └── post-wiki-edit.sh           # runs `qmd update` after wiki/ edits
 ├── docs/
 │   ├── HANDOFF.md                  # ← you are here
+│   ├── operations/                 # full workflows split out of CLAUDE.md
+│   │   ├── ingest.md               # Ingest + video + image sub-ops
+│   │   └── prune.md                # soft + hard erase workflows
+│   ├── slack-mode.md               # Slack bot rules (loaded only when preamble activates)
 │   ├── slack-bot-architecture.md   # planning: components, permissions, phases, risks
 │   └── slack-bot-ux-patterns.md    # planning: 5 UX patterns, Slack mrkdwn rules
 ├── wiki/                           # Tier 1 — git, markdown only
@@ -144,7 +165,7 @@ Claude Code will read the schema, this handoff doc, and produce a grounded summa
 
 - Don't rewrite `CLAUDE.md`. It's been iterated on carefully. Propose edits, don't apply them silently.
 - Don't delete the example pages without asking. The user may still be using them as references.
-- Don't add `docs/` files proactively. The three existing docs (`HANDOFF.md`, `slack-bot-architecture.md`, `slack-bot-ux-patterns.md`) are sufficient until the user asks for more.
+- Don't add `docs/` files proactively. The existing docs (`HANDOFF.md`, `operations/ingest.md`, `operations/prune.md`, `slack-mode.md`, `slack-bot-architecture.md`, `slack-bot-ux-patterns.md`) are sufficient until the user asks for more.
 - Don't build the Slack bot without explicit go-ahead. The docs are planning material, not a build spec to execute unprompted.
 - Don't wire any connected tools into `CLAUDE.md` without the user choosing which ones. The registry is deliberately empty.
 - Don't reformat, re-lint, or "clean up" the example pages as a first action. Ask what the user wants.
@@ -152,14 +173,17 @@ Claude Code will read the schema, this handoff doc, and produce a grounded summa
 ## Files to read, in order, to get up to speed
 
 1. `docs/HANDOFF.md` (this file) — context + state + decisions.
-2. `CLAUDE.md` — the schema the LLM agent lives inside. Every session starts here.
+2. `CLAUDE.md` — the schema the LLM agent lives inside. Every session starts here. (~450 lines, core schema + operation summaries.)
 3. `README.md` — human-facing overview. Useful to understand how a human would onboard.
 4. `wiki/index.md` and `wiki/log.md` — see what the wiki actually contains and what's happened to it.
 5. One example source page (`wiki/sources/2026-04-11-karpathy-llm-wiki.md`) — understand the page shape in practice.
-6. `CLAUDE-video-ingest.md` — only if the user is about to ingest a video.
-7. `docs/slack-bot-architecture.md` and `docs/slack-bot-ux-patterns.md` — only when Slack work actually starts.
+6. `docs/operations/ingest.md` — only when doing a non-trivial Ingest (video, image, or first ingest of a new content type).
+7. `CLAUDE-video-ingest.md` — only if the user is about to ingest a video.
+8. `docs/operations/prune.md` — only when about to delete a page.
+9. `docs/slack-mode.md` — only when running inside the Slack bot (activated by preamble).
+10. `docs/slack-bot-architecture.md` and `docs/slack-bot-ux-patterns.md` — only when Slack bot work actually starts.
 
-Total reading time: ~15 minutes. Do this before touching anything.
+Total reading time for items 1–5 (always): ~15 minutes. Items 6–10 are on-demand. Do 1–5 before touching anything.
 
 ## Contact / ownership
 
@@ -170,3 +194,5 @@ Total reading time: ~15 minutes. Do this before touching anything.
 ## Changelog of this handoff doc
 
 - **2026-04-11** — initial handoff doc created. Template state: personal-use ready, Slack docs planned, no bot built yet.
+- **2026-04-17** — qmd wired into Ingest/Query; Prune operation codified with soft + hard erase modes (see `wiki/log.md` schema entries).
+- **2026-04-18** — template review pass. Added slash commands under `.claude/commands/`, Claude Code hooks under `.claude/hooks/` + `.claude/settings.json` (SessionStart context + PostToolUse qmd auto-update), fixed a Python-heredoc bug in `CLAUDE-video-ingest.md`, and split `CLAUDE.md` into a core file (~450 lines) + `docs/operations/ingest.md` + `docs/operations/prune.md` + `docs/slack-mode.md`.

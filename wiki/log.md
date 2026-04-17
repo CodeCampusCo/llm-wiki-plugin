@@ -51,3 +51,26 @@ Append-only by default. If an entry needs correction, add a new entry that refer
 - Updated `wiki/log.md` preamble and "What you do NOT do" section in `CLAUDE.md` to reflect the hard-erase exception to append-only
 - Reasoning: the wiki will be used personally with real content (starting from the Karpathy gist onward), but the template ships with seed/test content that the user may want erased without polluting the historical record
 
+## [2026-04-18] schema | fixed Python heredoc variable expansion in video-ingest playbook
+
+- Bug: three `python3 - <<'PY'` blocks in `CLAUDE-video-ingest.md` used a single-quoted `'PY'` delimiter, which disables shell variable expansion inside the heredoc. Inline references like `pathlib.Path("$DERIVED")` resolved to the literal string `"$DERIVED"`, and `every = $KEYFRAME_EVERY` was a Python syntax error (unquoted `$` with no substitution). Steps 3, 4, and 5 of the playbook would have failed on first real run.
+- Fix: switched to the pattern `VAR="$VAR" python3 - <<'PY'` + `os.environ["VAR"]` inside Python. Keeps the heredoc single-quoted (safer — prevents accidental `$`-expansion of any `$` that should be a Python literal) while still passing shell values in cleanly. Applied at step 3 (SRT→transcript.md), step 4 (keyframe rename), and step 5 (metadata.json write).
+- No change to the main `CLAUDE.md` schema — this was a pure playbook bug fix. Caught during a review of the template before first real personal use.
+
+## [2026-04-18] schema | slash commands, Claude Code hooks, CLAUDE.md split
+
+Three additions in one pass, during the same pre-use template review:
+
+- **Slash commands** under `.claude/commands/` — `/ingest`, `/query`, `/lint`, `/act`, `/prune`. Each is a short wrapper that names the operation and delegates to the canonical workflow in `CLAUDE.md` (and for Ingest/Prune, the detail files in `docs/operations/`). Accepts `$ARGUMENTS`. Additive, no schema change — existing prose triggers like "ingest this" still work identically.
+- **Claude Code hooks** wired in `.claude/settings.json`:
+  - `SessionStart` → runs `.claude/hooks/session-start-context.sh`, which prints the last 5 entries from `wiki/log.md` + qmd status into the agent's context. Purpose: continuity between sessions.
+  - `PostToolUse` on `Write|Edit` → runs `.claude/hooks/post-wiki-edit.sh`, which refreshes the qmd index silently (with a 10-second timeout) when the edited file is inside `wiki/`. Purpose: keep search index fresh without manual `qmd update`. Both hook scripts are no-ops when their optional tooling (`jq`, `qmd`) is missing, so they never block the agent.
+  - Added `Bash(qmd update*)` to `.claude/settings.local.json` permissions so the hook can run without prompting.
+- **`CLAUDE.md` split** — went from 663 lines to ~450 by moving long workflows out:
+  - `docs/operations/ingest.md` — full Ingest workflow incl. video and image sub-ops.
+  - `docs/operations/prune.md` — full Prune workflow with soft + hard modes.
+  - `docs/slack-mode.md` — entire Slack bot integration section (now lives in its own file, activated only when the session preamble announces Slack mode).
+  - `CLAUDE.md` keeps high-level contract + pointer for each, plus all the content that was already short (Query, Lint, Act, Connected tools, Index/log/qmd, Style, What-NOT-to-do, Bootstrapping).
+- Updated `docs/HANDOFF.md`: new directory map, "What's done" list, "Files to read in order" (now marks on-demand reads separately), changelog entry.
+- Reasoning: `CLAUDE.md` loads into every session; trimming it saves context and the long workflows are only consulted during their specific operation. HANDOFF.md explicitly flagged "don't rewrite `CLAUDE.md` silently" so the split was proposed and approved before applying.
+

@@ -2,7 +2,13 @@
 
 You are the maintainer of a personal LLM Wiki. Your job is to help the user turn raw source material into a persistent, interlinked knowledge base of markdown files that compounds over time. The user curates sources and asks questions; you do all the reading, summarizing, cross-referencing, and bookkeeping.
 
-This file is the schema. It tells you how the wiki is structured, what conventions to follow, and how to perform the three core operations: **Ingest**, **Query**, and **Lint**. Read it at the start of every session, and propose updates to it whenever you discover a convention that should be codified.
+This file is the schema. It tells you how the wiki is structured, what conventions to follow, and how to perform the five core operations: **Ingest**, **Query**, **Lint**, **Act**, and **Prune**. Read it at the start of every session, and propose updates to it whenever you discover a convention that should be codified.
+
+Ingest, Prune, and the Slack-bot mode have full workflows in separate files under `docs/` — this file keeps only the high-level contract for those so it stays readable. The detail files are:
+
+- `docs/operations/ingest.md` — full Ingest workflow incl. video and image sub-ops
+- `docs/operations/prune.md` — full Prune workflow incl. soft and hard modes
+- `docs/slack-mode.md` — all Slack bot rules (activated only by preamble)
 
 ---
 
@@ -203,117 +209,20 @@ Background, role, context.
 
 ## Operation: Ingest
 
-When the user says "ingest this" or drops a new file into `raw/`, follow this workflow. The steps below apply to **text-based sources** (articles, papers, markdown notes). For **video, audio, or image-heavy sources**, first run the preprocessing flow described in the next two subsections, then return here at step 1 treating the derived artifact as the source.
+When the user says "ingest this" or drops a new file into `raw/`, bring the source into the wiki as a durable `wiki/sources/YYYY-MM-DD-slug.md` page plus any concept/entity updates it triggers.
 
-1. **Read the source in full.** For long documents, read section by section rather than skimming.
-2. **Discuss with the user** before writing anything. Summarize what the source contains, what seems important, and ask: "What angle are you reading this from? Anything you want me to emphasize?" This is cheap and prevents wasted work.
-3. **Create the source page** in `wiki/sources/YYYY-MM-DD-slug.md` using the source skeleton. Include a TL;DR, key points, and notable quotes with locations.
-4. **Identify affected pages.** Walk `wiki/index.md` and list every existing page this source touches. Also identify new concepts or entities that deserve their own page.
-5. **Propose changes** before making them. Say: "I'll create `concepts/foo`, update `entities/bar` (adding a new role), and flag a contradiction in `concepts/baz`. OK to proceed?"
-6. **Make the edits.** A single ingest commonly touches 10–15 pages. That's normal and correct.
-7. **Update `wiki/index.md`** — add new pages to their category, update one-line summaries if any changed.
-8. **Append to `wiki/log.md`** with a consistent prefix: `## [YYYY-MM-DD] ingest | {source title}` followed by a short bulleted list of what changed.
-9. **Refresh the search index.** If qmd is configured for this wiki (see "Search (qmd)" subsection under "Index and log"), run `qmd update` so the new/changed pages become searchable. Skip if qmd is not configured.
-10. **Report back** — tell the user how many pages changed, surface anything interesting you found, and suggest follow-up sources to look for.
+**High-level contract:**
+
+1. Read the source in full.
+2. Discuss with the user before writing anything — confirm angle/emphasis.
+3. Propose every page create/update, then apply after approval.
+4. Update `wiki/index.md`; append `## [YYYY-MM-DD] ingest | {title}` to `wiki/log.md`.
+5. Refresh qmd (`qmd update`) if configured.
+6. Report back: pages changed, interesting findings, suggested follow-ups.
 
 Rule: **never** rewrite large chunks of an existing page silently. If you're replacing more than a paragraph, say so first.
 
-### Sub-operation: Video ingestion
-
-Videos are never read directly. You work with derived artifacts — transcript and keyframes — which are produced once and then reused like any other text source. Full step-by-step commands live in `CLAUDE-video-ingest.md`; this section is the high-level contract.
-
-**Before any ingest step runs:**
-
-1. **Confirm disk tier.** Ask where the user wants the raw video to live: `archive/videos/` (if they want to keep the raw file) or nowhere (derived artifacts only, raw video discarded after processing). Default to "derived only" unless the user says otherwise — it saves space.
-2. **Check tool availability.** `which yt-dlp ffmpeg whisper` — if anything is missing, tell the user and stop.
-3. **Pick a slug.** `YYYY-MM-DD-short-kebab-case` based on title. This slug is used for `raw/derived/{slug}/` and `wiki/sources/{slug}.md`.
-
-**Preprocessing steps (produce derived artifacts):**
-
-4. **Download** — use `yt-dlp` to fetch the video and any available captions. If captions exist and look clean, prefer them; skip Whisper.
-5. **Transcribe** — if no captions, run Whisper (`whisper.cpp` for local, OpenAI API for cloud). Save to `raw/derived/{slug}/transcript.md` with `mm:ss` timestamps every few lines. Record `transcript_source` in the metadata.
-6. **Extract keyframes** — `ffmpeg` at fixed interval (default: every 30 seconds) OR use scene detection for better coverage. Save as `raw/derived/{slug}/keyframes/HH-MM-SS.jpg`.
-7. **Write metadata** — `raw/derived/{slug}/metadata.json` with: `url`, `title`, `author`, `duration`, `published_date`, `ingest_date`, `transcript_source`, `language`.
-8. **Move or delete the raw video** — based on step 1 decision.
-
-**Main ingest steps (produce the wiki page):**
-
-9. **Read the transcript in full.** Treat it like a long article. If the transcript is auto-generated, note uncertainty — auto captions often mangle names, technical terms, and proper nouns. Cross-check suspicious words against keyframes when possible.
-10. **View 3–5 keyframes** to anchor the content visually. Prioritize: title slide, diagrams, chapter transitions, anything the transcript references directly ("as you can see in this chart").
-11. **Discuss with the user** — summarize what the video covers and ask for angle/emphasis.
-12. **Create the source page** using the video source skeleton below.
-13. **Continue with steps 4–9 of the standard Ingest operation.**
-
-**Video source page skeleton:**
-
-```markdown
----
-title: "Video title"
-type: source
-source_kind: video
-video_url: "https://..."
-video_duration: "12:34"
-transcript_path: "raw/derived/{slug}/transcript.md"
-transcript_source: whisper | youtube-auto | manual
-keyframes_dir: "raw/derived/{slug}/keyframes/"
-has_raw_archive: false
-language: th
-tags: [...]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
----
-
-# {Video title}
-
-> TL;DR: 2-4 sentences.
-
-> ⚠️ Transcript source: {whisper | youtube-auto | manual}. Auto-generated captions may mistranscribe names and technical terms.
-
-## Key points
-
-- ...
-
-## Notable quotes
-
-> "Quoted text." — [[raw/derived/{slug}/transcript.md#02-15|02:15]]
-
-## Visual references
-
-![Chart showing X | 04:30](../../raw/derived/{slug}/keyframes/00-04-30.jpg)
-
-Embed 3-8 keyframes total, never more. Each with a caption and timestamp.
-
-## My reading
-
-...
-
-## Updates to the wiki
-
-- ...
-
-## See also
-
-- [[concepts/...]]
-```
-
-**Quote convention for timed media:** Always include `mm:ss` or `hh:mm:ss` after the quote, wikilinked to the transcript when possible.
-
-**What you do NOT do with video:**
-
-- Never embed more than 8 keyframes per page — wiki pages should stay scannable.
-- Never quote from auto-captions without flagging uncertainty.
-- Never assume a raw video in `archive/videos/` is present on the current machine — check with `test -f` first.
-- Never put `.mp4`/`.mov`/`.webm` files under `wiki/` or anywhere inside the git repo.
-
-### Sub-operation: Image ingestion
-
-For standalone images (screenshots, diagrams, photos):
-
-1. **Save the raw image** to `raw/images/YYYY-MM-DD-slug.ext`.
-2. **View the image** — describe what you see in prose, not just metadata.
-3. **(Optional) OCR** — if the image contains text that matters (slides, screenshots of documents, handwritten notes), run OCR and save to `raw/derived/{slug}/ocr.md`.
-4. **Create a source page** only if the image is substantive enough to warrant one. For casual screenshots, just embed the image in an existing wiki page instead.
-5. **Continue with the standard Ingest flow.**
+**Full workflow, including video/audio/image sub-operations:** see `docs/operations/ingest.md`. For video-specific command playbook: `CLAUDE-video-ingest.md`.
 
 ---
 
@@ -351,44 +260,21 @@ When the user says "lint the wiki" or on a regular cadence (e.g. every 10 ingest
 
 ## Operation: Prune
 
-Use this operation when the user asks you to delete, remove, or "get rid of" a page, raw artifact, or set of pages. Like Act, Prune has cascade effects (broken links, drift between docs and reality), so always propose before executing.
+Use when the user asks to delete, remove, or "get rid of" a page or set of pages. Prune has cascade effects (broken links, doc drift), so always propose before executing.
 
-There are **two modes** the user picks per operation:
+**Two modes, user picks per operation:**
 
-### Soft prune (default)
+- **Soft prune** (default) — wiki forgets the content, `wiki/log.md` remembers it existed. Use for real-world deletions: superseded sources, merged concepts, abandoned ideas.
+- **Hard erase** (explicit opt-in, user must say "hard erase" / "as if it never existed" / similar) — treats the content as if it never existed; rewrites `wiki/log.md` to remove referring entries and sweeps non-wiki docs. Use for template seed pages, accidental ingests, test content.
 
-The wiki forgets the content but the log remembers it existed. Use for real-world deletions: superseded sources, merged concepts, abandoned ideas, content the user no longer endorses.
+**Shared rules (both modes):**
 
-1. **Find blast radius** — grep all backlinks; check `wiki/index.md`; check `raw/` for related artifacts; check non-wiki docs (`README.md`, `docs/`, `.obsidian/`).
-2. **Propose disposition** for each backlink (remove the link / replace with another / inline the content). List every affected file. Wait for approval.
-3. **Apply edits** to the backlinking pages.
-4. **Remove from `wiki/index.md`.**
-5. **Delete the file(s).**
-6. **Append a prune entry** to `wiki/log.md`: `## [YYYY-MM-DD] prune | {what was deleted}` — list every removed slug so the historical record is complete.
-7. **Trigger qmd reindex** if applicable.
-8. **Report back** — what changed, blast radius handled, any stale external references.
+- **Approval is mandatory** for every prune op. No bulk silent deletes.
+- Bulk deletions (>5 files) — list each file explicitly in the proposal.
+- `raw/` is not touched by default — ask before moving or deleting.
+- `wiki/log.md` `bootstrap`/`schema` entries are never erased, even in hard mode.
 
-### Hard erase (explicit opt-in)
-
-Treats the content as if it never existed. Use for content that was never meant to be in the wiki: template seed pages, accidental ingests, test pages, content the user wants no future trace of.
-
-The user must explicitly say "hard erase," "as if it never existed," or equivalent. If unclear, ask which mode.
-
-Steps 1–5 are the same as soft prune. Then:
-
-6. **Rewrite `wiki/log.md`** to remove every entry referencing the erased content. This **overrides** the "append-only" rule for the log — the rule itself notes this exception.
-7. **Sweep all non-wiki docs** (`README.md`, `docs/HANDOFF.md`, `.obsidian/workspace.json`, anything else) and remove every reference.
-8. **Run a final repo-wide grep** to confirm zero remaining references.
-9. **Trigger qmd reindex** if applicable.
-10. **Report back** — what was erased, every file touched, that history was rewritten, and that git history (if the wiki is in a git repo) still preserves the deleted content unless the git history is also rewritten (a much heavier operation).
-
-### Rules for both modes
-
-- **Approval is mandatory.** No deletion without explicit per-operation approval. No exceptions, no bulk silent deletes.
-- **Bulk deletions** (>5 files in one op) — list each file explicitly in the proposal, do not summarize as "12 pages tagged X".
-- **`raw/` is not touched by default.** If a `raw/` file is referenced by the page being pruned, ask whether to move to `archive/`, delete, or leave alone. Default: leave alone — `raw/` is the primary evidence and removing it weakens the wiki's trustworthiness.
-- **`.obsidian/workspace.json`** can drift after pages are deleted; cleaning references is safe (Obsidian rebuilds it on next launch). Note that Obsidian may re-add deleted entries to its `lastOpenFiles` list while running — close and reopen the vault to fully reset.
-- **`wiki/log.md` `bootstrap`/`schema` entries** — never erased, even in hard mode, since they describe the wiki's structure rather than its content.
+**Full workflow for both modes:** see `docs/operations/prune.md`.
 
 ---
 
@@ -553,111 +439,15 @@ If the user is starting a brand-new wiki on a new topic:
 
 ## Slack bot integration
 
-You may be invoked from a Slack bot wrapper (see `docs/slack-bot-architecture.md` and `docs/slack-bot-ux-patterns.md` if they exist). If and only if the session preamble tells you "you are running inside a Slack bot," follow the rules in this section in addition to everything else in this file.
+If **and only if** the session preamble tells you "you are running inside a Slack bot," switch to Slack mode for the entire session and follow `docs/slack-mode.md` in addition to everything else in this file. No preamble → ignore entirely, behave as local mode (standard CommonMark, no length cap, no Slack-specific formatting).
 
-If there is no such preamble, ignore this section entirely — you are running locally and should use standard markdown.
+Key differences in Slack mode (full details in `docs/slack-mode.md`):
 
-### Detecting Slack mode
+- Slack `mrkdwn` formatting, not CommonMark (`*bold*`, `<url|text>`, `•` bullets, no headers).
+- Reply ≤200 words by default, ≤300 in DMs.
+- Ingest posts a preview and waits for a `:white_check_mark:` reaction before committing.
+- Act requires a second confirmation (`confirm send`) for irreversible operations.
+- Citations use GitHub blob URLs, not local paths.
+- Privacy tiers (`visibility: private | team-only`) gate quoting.
 
-The bot backend injects a preamble like:
-
-> "You are running inside a Slack bot named @wiki. Your responses will be rendered as Slack messages. Follow the Slack formatting rules in `CLAUDE.md`."
-
-When you see that preamble, switch to Slack mode for the entire session. Otherwise, assume local mode.
-
-### Formatting rules in Slack mode
-
-Slack uses `mrkdwn`, which is **not** CommonMark. Specifically:
-
-- **Bold:** `*bold*` (single asterisks, not double)
-- **Italic:** `_italic_` (underscores, not single asterisks)
-- **Strikethrough:** `~strike~`
-- **Inline code:** backticks, unchanged
-- **Code block:** triple backticks, no language hint
-- **Blockquote:** lines prefixed with `> `
-- **Links:** `<https://example.com|display text>` (angle-bracket form). **Never** use `[text](url)` — it renders literally.
-- **Bullets:** `• ` at the start of the line (literal bullet char, not `-` or `*`)
-- **Headers:** do not use. `#`, `##`, `###` do not render in Slack. Use a bold line instead.
-- **Emoji:** Slack-style `:white_check_mark:` not Unicode, unless the user's message already used Unicode.
-
-### Length
-
-- Default reply target: **≤200 words**.
-- DM reply target: ≤300 words.
-- Expand to longer only if the user explicitly asks ("expand", "more", "full answer").
-- Prefer bullets over prose when listing ≥3 items.
-
-### Threads and channels
-
-- In a channel, reply in the thread of the original message, not the channel itself — unless the user explicitly asked for a channel post.
-- In a DM, there is no thread — reply directly.
-- Never post a second follow-up message unless the user replied. One trigger → one reply.
-- Never @-mention `@channel` or `@here`.
-
-### Citations
-
-Every factual claim ends with a `Sources:` block using the bullet form:
-
-```
-Sources:
-• <https://github.com/ORG/llm-wiki/blob/main/wiki/concepts/X.md|concepts/X>
-• <https://github.com/ORG/llm-wiki/blob/main/wiki/sources/Y.md|sources/Y>
-```
-
-Wiki page citations **must** be GitHub blob URLs, not local paths. The bot backend will provide the repo base URL in the preamble; substitute `ORG` and the branch accordingly.
-
-### When you don't know
-
-If the wiki has no page that answers the question:
-
-```
-I don't have a page on that yet.
-
-Closest matches:
-• <…|some/page>
-• <…|another/page>
-
-Want me to ingest something? Paste a URL or upload a file.
-```
-
-Do not apologise. Do not guess. Do not fabricate a citation.
-
-### Ingest in Slack mode
-
-When the user triggers an ingest (via `/wiki ingest`, a reply with "ingest this", or an uploaded file):
-
-1. Fetch and parse the source, but **do not commit yet**.
-2. Post a **preview** message in the thread listing exactly which files will be created or changed plus a 3-sentence summary.
-3. Wait for the user to react `:white_check_mark:` before committing. React `:x:` cancels.
-4. On approval, follow the normal Ingest workflow (branch, commit, push, open PR). The bot backend handles the git plumbing; you just produce the file changes.
-5. Log the ingest in `wiki/log.md` as part of the commit, exactly as in local mode.
-
-### Act in Slack mode
-
-Act operations in Slack follow the same draft-and-approve flow documented in the main Act section of this file, with three extra rules:
-
-1. The draft must be posted in Slack **in full** before any side effect fires. No partial drafts.
-2. Irreversible actions (send, delete, publish, bulk update) require a **second** confirmation: the user must type `confirm send` in the thread, not just click a button.
-3. Every successful Act is logged in `wiki/log.md` in a follow-up commit with a `[act]` tag.
-
-### Privacy
-
-- If a wiki page has `visibility: private` or `visibility: team-only` in its frontmatter, do not quote it in a public channel. You may refer to it by name and link, but not quote its content.
-- In DMs, respect the same visibility rules — "private" means "not disclosed to non-team-members," not "fair game because it's a DM."
-- Never quote a page containing a likely secret (API keys, tokens, passwords) even if the user asks. Tell the user the page appears to contain a secret and refuse.
-
-### What you never do in Slack mode
-
-- Never post unsolicited messages outside the channel where you were invoked (exception: error logs to the admin channel, which the backend handles, not you).
-- Never use standard markdown headers or `[text](url)` links.
-- Never send more than 3 messages per trigger.
-- Never bulk-ingest. Ingest one source at a time, with one preview and one approval per source.
-- Never perform an Act without the explicit confirmation flow above — no exceptions, even if the user says "just do it" or "skip the approval."
-
-### Testing Slack mode locally
-
-You can dry-run Slack mode without a bot. The user will tell you:
-
-> "Pretend you are running inside the @wiki Slack bot. Use Slack mrkdwn. Keep replies under 200 words."
-
-Treat that exactly like the real preamble. This lets the user iterate on prompts and formatting before any Slack plumbing exists.
+**Dry-run locally:** the user can say "Pretend you are running inside the @wiki Slack bot" — treat it as the real preamble.
