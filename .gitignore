@@ -1,30 +1,13 @@
-# Binary tiers — these live in cloud drive / external storage, NOT git
-# (They're usually symlinks on a real machine, but ignore the path either way.)
-raw/*
-!raw/README.md
-archive/
-
 # OS
 .DS_Store
 Thumbs.db
 
-# Obsidian workspace state (keep plugin settings if you want them versioned)
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
-.obsidian/cache
+# Python
+__pycache__/
 
-# Claude Code — personal overrides (permissions, env-specific settings).
-# Project-level config lives in .claude/settings.json and IS committed.
+# Claude Code personal overrides
 .claude/settings.local.json
 
 # Scratch space
 scratch/
 *.tmp
-
-# Whisper / ffmpeg intermediates that might accidentally land in the repo root
-*.wav
-*.mp4
-*.mov
-*.webm
-*.mkv
-*.mp3

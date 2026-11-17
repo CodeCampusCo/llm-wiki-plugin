@@ -1,0 +1,14 @@
+{
+  "name": "llm-wiki",
+  "description": "Claude Code plugin for keeping a personal LLM Wiki.",
+  "owner": {
+    "name": "CodeCampusCo"
+  },
+  "plugins": [
+    {
+      "name": "llm-wiki",
+      "source": "./",
+      "description": "Ingest, query, lint, prune and act on a personal markdown wiki."
+    }
+  ]
+}
