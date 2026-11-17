@@ -18,7 +18,7 @@ The plugin ships the schema, the skills and the hooks. Your wiki itself lives in
 ## Install
 
 ```
-/plugin marketplace add CodeCampusCo/llm-wiki
+/plugin marketplace add CodeCampusCo/llm-wiki-plugin
 /plugin install llm-wiki@llm-wiki
 /llm-wiki:init
 ```
