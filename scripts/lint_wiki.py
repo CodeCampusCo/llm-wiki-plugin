@@ -24,7 +24,7 @@ SECRETS = (
     ("chat API token", re.compile(r"xox[baprs]-")),
     ("GitHub token", re.compile(r"ghp_[A-Za-z0-9]{36}")),
     ("API secret key", re.compile(r"sk-[A-Za-z0-9]{20,}")),
-    ("email address", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b")),
+    ("email address", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[^\W\d_]{2,}\b")),
 )
 
 
