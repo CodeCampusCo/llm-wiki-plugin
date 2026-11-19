@@ -5,6 +5,7 @@ Plain stdout is added to the session context. Never fails the session.
 
 Usage: session_start.py <data_dir>
 """
+import re
 import sys
 from pathlib import Path
 
@@ -23,13 +24,35 @@ def _read(path):
         return ""
 
 
+def _outside_fences(lines):
+    """(line, in_fence) pairs; a line opening or closing a ``` fence counts as inside."""
+    fenced = False
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            yield line, True
+            fenced = not fenced
+        else:
+            yield line, fenced
+
+
 def personal_rules(wiki):
-    """Body of the '## Session rules' section of the wiki's CONVENTIONS.md, or ''."""
-    text = _read(wiki.root / "CONVENTIONS.md")
-    if PERSONAL_HEADING not in text:
-        return ""
-    body = text.split(PERSONAL_HEADING, 1)[1]
-    return body.split("\n## ", 1)[0].strip()
+    """Body of the '## Session rules' section of the wiki's CONVENTIONS.md, or ''.
+
+    The heading must be exactly '## Session rules' outside a code fence; the section ends at the next
+    level-2 heading outside a fence. HTML comments (guidance for the user) are dropped.
+    """
+    lines = _read(wiki.root / "CONVENTIONS.md").replace("\r\n", "\n").split("\n")
+    body, inside = [], False
+    for line, fenced in _outside_fences(lines):
+        is_h2 = not fenced and line.startswith("## ")
+        if inside and is_h2:
+            break
+        if inside:
+            body.append(line)
+        elif is_h2 and line.rstrip() == PERSONAL_HEADING:
+            inside = True
+    text = re.sub(r"<!--.*?-->", "", "\n".join(body), flags=re.S)
+    return "\n".join(line for line in text.strip().split("\n") if line.strip() or line == "").strip()
 
 
 def session_rules(wiki):
@@ -43,7 +66,7 @@ def session_rules(wiki):
     lines = _read(RULES_FILE).replace("{search}", search).strip().splitlines()
     own = personal_rules(wiki)
     if own:
-        lines += ["Personal session rules (CONVENTIONS.md):", *own.splitlines()]
+        lines += ["", "Personal session rules (CONVENTIONS.md):", *own.splitlines()]
     return lines
 
 

@@ -8,7 +8,7 @@ Add your own rules here as they emerge: naming, tags, page layout tweaks, what t
 
 ## Session rules
 
-Rules the plugin adds to every Claude Code session after its own working rules (for example how wiki changes reach the repo). Keep them short; each line costs context in every session. Delete this section if you have none.
+<!-- Rules the plugin adds to every Claude Code session after its own working rules, for example how wiki changes reach the repo. Write them as a bullet list below this comment; keep them short, each line costs context in every session. This comment is not printed. -->
 
 ## Connected tools
 

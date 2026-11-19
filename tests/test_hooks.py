@@ -114,7 +114,7 @@ class SessionStartTests(unittest.TestCase):
         self.assertIn("LLM Wiki working rules", text)
         self.assertIn("/llm-wiki:ingest", text)
         self.assertIn("`notes`", text)  # qmd collection is filled in
-        self.assertNotIn("{qmd_collection}", text)
+        self.assertNotIn("{search}", text)
 
     def test_session_rules_without_collection_point_to_index(self):
         wiki = make_wiki(self.tmp / "mine", collection=None)
@@ -139,6 +139,42 @@ class SessionStartTests(unittest.TestCase):
         self.assertIn("- Open wiki PRs as the personal account.", text)
         self.assertNotIn("not this", text)
         self.assertNotIn("nor this", text)
+
+    def personal(self, conventions):
+        wiki = make_wiki(self.tmp / "p")
+        (wiki.root / "CONVENTIONS.md").write_bytes(conventions.encode("utf-8"))
+        return ss.personal_rules(wiki)
+
+    def test_personal_rules_heading_must_match_exactly(self):
+        self.assertEqual(self.personal("## Session rules extra\n- no\n"), "")
+        self.assertEqual(self.personal("### Session rules\n- no\n"), "")
+        self.assertEqual(self.personal("see ## Session rules in text\n"), "")
+
+    def test_personal_rules_ignore_fenced_examples(self):
+        text = ("```markdown\n## Session rules\n- example only\n```\n\n"
+                "## Session rules\n\n- real\n```\n## Not a heading\n```\n- still real\n\n## Next\n- no\n")
+        self.assertEqual(self.personal(text), "- real\n```\n## Not a heading\n```\n- still real")
+
+    def test_personal_rules_last_section_and_crlf(self):
+        self.assertEqual(self.personal("# T\r\n\r\n## Session rules\r\n\r\n- a\r\n- b\r\n"), "- a\n- b")
+
+    def test_personal_rules_skip_html_comments(self):
+        self.assertEqual(self.personal("## Session rules\n\n<!-- guidance\nmore -->\n\n## Next\n"), "")
+        self.assertEqual(self.personal("## Session rules\n<!-- note -->\n- keep\n"), "- keep")
+
+    def test_fresh_skeleton_adds_no_personal_rules(self):
+        wiki = make_wiki(self.tmp / "fresh")
+        (wiki.root / "CONVENTIONS.md").write_text((ss.PLUGIN_ROOT / "skeleton" / "CONVENTIONS.md").read_text())
+        text = ss.context(wiki, ss.PLUGIN_ROOT, Path("/data"))
+        self.assertIn("LLM Wiki working rules", text)
+        self.assertNotIn("Personal session rules (CONVENTIONS.md):", text)
+
+    def test_missing_rules_file_still_prints_personal_rules(self):
+        wiki = make_wiki(self.tmp / "mine")
+        (wiki.root / "CONVENTIONS.md").write_text("## Session rules\n- mine\n")
+        with mock.patch.object(ss, "RULES_FILE", self.tmp / "nope.md"):
+            text = ss.context(wiki, ss.PLUGIN_ROOT, Path("/data"))
+        self.assertIn("- mine", text)
 
     def test_unconfigured_has_no_rules(self):
         self.assertNotIn("LLM Wiki working rules", ss.context(None, ss.PLUGIN_ROOT, Path("/data")))
