@@ -20,6 +20,7 @@ class Wiki:
     archive_dir: Path
     qmd_collection: str | None
     schema_version: int
+    session_rules: bool = True
 
     @property
     def pages_dir(self) -> Path:
@@ -67,6 +68,7 @@ def resolve(data_dir: str | Path | None,
         archive_dir=_sub_dir(root, conf.get("archive_dir"), "archive"),
         qmd_collection=collection if isinstance(collection, str) else None,
         schema_version=version if isinstance(version, int) else SCHEMA_VERSION,
+        session_rules=conf.get("session_rules") is not False,
     )
 
 

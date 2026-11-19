@@ -53,5 +53,8 @@ Only if `qmd` is installed (`command -v qmd`).
 
 ## Snippet
 
-Run `... snippet`, show the output, and tell the user to paste it into their own
-`~/.claude/CLAUDE.md`. Never edit that file yourself.
+The SessionStart hook already adds the wiki working rules and the wiki location to the
+session context. Run `... snippet` and show the output; it records only where the wiki
+lives. Offer to paste it into the user's own `~/.claude/CLAUDE.md` if they want a hard
+rule there, since hook context carries less weight than `CLAUDE.md`. Never edit that file
+yourself.

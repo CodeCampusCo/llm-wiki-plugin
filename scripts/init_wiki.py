@@ -126,13 +126,6 @@ def cmd_existing(args, data_dir: Path) -> dict:
 SNIPPET = """## LLM Wiki ({wiki})
 
 My wiki lives at {wiki}.
-
-- Query the wiki before exploring code or calling external tools
-  (qmd collection `{collection}`, or search {wiki}/wiki). Skip it only for
-  trivial requests. Treat hits as background and verify against current code.
-- Before ending a session, if it produced a reusable method (runbook,
-  convention, gotcha), propose an ingest: list the pages to create or update.
-  Wait for my approval before ingesting or committing to the wiki.
 """
 
 
@@ -140,8 +133,7 @@ def cmd_snippet(args, data_dir: Path) -> str:
     wiki = wikiconf.resolve(data_dir, {})
     if wiki is None:
         raise InitError("no wiki configured; run init first")
-    return SNIPPET.format(wiki=wiki.root,
-                          collection=wiki.qmd_collection or "<collection>")
+    return SNIPPET.format(wiki=wiki.root)
 
 
 def build_parser() -> argparse.ArgumentParser:
