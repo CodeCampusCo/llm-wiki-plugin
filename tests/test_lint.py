@@ -64,8 +64,9 @@ class Lint(unittest.TestCase):
         self.assertNotIn(("secret", "concepts/v.md"), self.kinds())
 
     def test_idn_tld_email_is_still_flagged(self):
-        self.put("index.md", "[[concepts/e]]\n")
-        self.put("concepts/e.md", GOOD + "user@example.рф and me@domain.ไทย\n")
+        self.put("index.md", "[[concepts/e]] [[concepts/f]]\n")
+        self.put("concepts/e.md", GOOD + "user@example.рф\n")
+        self.put("concepts/f.md", GOOD + "me@domain.ไทย\n")
         details = [d for k, _, d in lint_wiki.check(self.wiki()) if k == "secret"]
         self.assertEqual(len(details), 2)
 
