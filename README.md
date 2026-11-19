@@ -10,7 +10,7 @@ The plugin ships the schema, the skills and the hooks. Your wiki itself lives in
 
 - **Skills:** `/llm-wiki:init`, `/llm-wiki:ingest`, `/llm-wiki:query`, `/llm-wiki:lint`, `/llm-wiki:prune`, `/llm-wiki:act`.
 - **Hooks:**
-  - `SessionStart` tells the session where your wiki is (or to run `/llm-wiki:init` if none is set up).
+  - `SessionStart` tells the session where your wiki is (or to run `/llm-wiki:init` if none is set up) and adds the wiki working rules (`schema/session-rules.md`: check the wiki before a task, propose ingests at the end, never write without approval) plus any `## Session rules` section from your `CONVENTIONS.md`. You don't need to add wiki rules to `~/.claude/CLAUDE.md`. Set `"session_rules": false` in `.llm-wiki.json` to turn the rules off.
   - `UserPromptSubmit` (wiki hint) matches your prompt against the `keywords` in page frontmatter and points at up to 3 matching pages.
   - `PostToolUse` (post-wiki-edit) refreshes the qmd index (`qmd update`) only when the edited file is inside the wiki and the wiki has a qmd collection.
 - **Schema:** `schema/schema.md` plus operation playbooks (ingest incl. video, prune), versioned in `schema/CHANGELOG.md`.

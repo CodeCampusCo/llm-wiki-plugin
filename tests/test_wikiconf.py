@@ -64,6 +64,15 @@ class ResolveTests(unittest.TestCase):
         self.assertEqual(wiki.qmd_collection, "w")
         self.assertEqual(wiki.schema_version, 1)
 
+    def test_session_rules_default_on_and_only_false_turns_off(self):
+        cases = [(None, True), (False, False), (True, True), ("no", True), (0, True)]
+        for value, expected in cases:
+            conf = {"schema_version": 1} if value is None else {"schema_version": 1, "session_rules": value}
+            root = make_wiki(self.tmp / f"w-{value}", json.dumps(conf))
+            with self.subTest(value=value):
+                wiki = wikiconf.resolve(None, {"LLM_WIKI_DIR": str(root)})
+                self.assertIs(wiki.session_rules, expected)
+
     def test_missing_or_corrupt_config_returns_none(self):
         self.assertIsNone(wikiconf.resolve(self.data, {}))
         self.assertIsNone(wikiconf.resolve(None, {}))

@@ -11,6 +11,40 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 LOG_ENTRIES = 5
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+RULES_FILE = PLUGIN_ROOT / "schema" / "session-rules.md"
+PERSONAL_HEADING = "## Session rules"
+
+
+def _read(path):
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def personal_rules(wiki):
+    """Body of the '## Session rules' section of the wiki's CONVENTIONS.md, or ''."""
+    text = _read(wiki.root / "CONVENTIONS.md")
+    if PERSONAL_HEADING not in text:
+        return ""
+    body = text.split(PERSONAL_HEADING, 1)[1]
+    return body.split("\n## ", 1)[0].strip()
+
+
+def session_rules(wiki):
+    """Plugin working rules with this wiki's search filled in, plus the user's own, or [] when turned off."""
+    if not wiki.session_rules:
+        return []
+    if wiki.qmd_collection:
+        search = f"qmd collection `{wiki.qmd_collection}` (MCP query tool, or `qmd query \"<topic>\" -c {wiki.qmd_collection}`)"
+    else:
+        search = f"read {wiki.pages_dir / 'index.md'}"
+    lines = _read(RULES_FILE).replace("{search}", search).strip().splitlines()
+    own = personal_rules(wiki)
+    if own:
+        lines += ["Personal session rules (CONVENTIONS.md):", *own.splitlines()]
+    return lines
 
 
 def recent_log(wiki):
@@ -37,6 +71,9 @@ def context(wiki, plugin_root, data_dir):
         f"Scripts: {plugin_root}/scripts",
         f"Wiki root: {wiki.root}",
     ]
+    rules = session_rules(wiki)
+    if rules:
+        lines += ["", *rules]
     log = recent_log(wiki)
     if log:
         lines += ["", f"Recent wiki activity (last {LOG_ENTRIES} entries of wiki/log.md):", *log]
@@ -50,8 +87,7 @@ def main(argv):
         print("llm-wiki: plugin data dir unavailable; update Claude Code")
         return
     data_dir = Path(argv[1])
-    plugin_root = Path(__file__).resolve().parent.parent
-    print(context(wikiconf.resolve(data_dir), plugin_root, data_dir))
+    print(context(wikiconf.resolve(data_dir), PLUGIN_ROOT, data_dir))
 
 
 if __name__ == "__main__":

@@ -108,6 +108,41 @@ class SessionStartTests(unittest.TestCase):
         self.assertIn("/plug/scripts", text)
         self.assertIn(str(wiki.root), text)
 
+    def test_session_rules_are_included_by_default(self):
+        wiki = make_wiki(self.tmp / "mine")
+        text = ss.context(wiki, ss.PLUGIN_ROOT, Path("/data"))
+        self.assertIn("LLM Wiki working rules", text)
+        self.assertIn("/llm-wiki:ingest", text)
+        self.assertIn("`notes`", text)  # qmd collection is filled in
+        self.assertNotIn("{qmd_collection}", text)
+
+    def test_session_rules_without_collection_point_to_index(self):
+        wiki = make_wiki(self.tmp / "mine", collection=None)
+        text = ss.context(wiki, ss.PLUGIN_ROOT, Path("/data"))
+        self.assertIn(str(wiki.pages_dir / "index.md"), text)
+        self.assertNotIn("{", text.split("LLM Wiki working rules", 1)[1])
+
+    def test_session_rules_can_be_turned_off(self):
+        root = self.tmp / "off"
+        make_wiki(root)
+        conf = json.loads((root / ".llm-wiki.json").read_text())
+        (root / ".llm-wiki.json").write_text(json.dumps({**conf, "session_rules": False}))
+        wiki = wikiconf.resolve(None, {"LLM_WIKI_DIR": str(root)})
+        self.assertNotIn("LLM Wiki working rules", ss.context(wiki, ss.PLUGIN_ROOT, Path("/data")))
+
+    def test_personal_session_rules_come_from_conventions(self):
+        wiki = make_wiki(self.tmp / "mine")
+        (wiki.root / "CONVENTIONS.md").write_text(
+            "# Personal Conventions\n\n## Conventions\n\nnot this\n\n"
+            "## Session rules\n\n- Open wiki PRs as the personal account.\n\n## Connected tools\n\nnor this\n")
+        text = ss.context(wiki, ss.PLUGIN_ROOT, Path("/data"))
+        self.assertIn("- Open wiki PRs as the personal account.", text)
+        self.assertNotIn("not this", text)
+        self.assertNotIn("nor this", text)
+
+    def test_unconfigured_has_no_rules(self):
+        self.assertNotIn("LLM Wiki working rules", ss.context(None, ss.PLUGIN_ROOT, Path("/data")))
+
     def test_missing_log_is_fine(self):
         wiki = make_wiki(self.tmp / "mine")
         self.assertIn(str(wiki.root), ss.context(wiki, Path("/plug"), Path("/data")))

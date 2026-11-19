@@ -26,3 +26,6 @@ scratch/
 *.mkv
 *.mp3
 __pycache__/
+
+# Claude Code: personal overrides (permissions, env-specific settings)
+.claude/settings.local.json
