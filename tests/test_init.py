@@ -85,8 +85,9 @@ class InitTests(unittest.TestCase):
         r = run(self.data, "snippet")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn(str(wiki), r.stdout)
-        self.assertIn("before exploring", r.stdout)
-        self.assertIn("approval", r.stdout)
+        self.assertIn("My wiki lives at", r.stdout)
+        self.assertNotIn("before exploring", r.stdout)
+        self.assertNotIn("approval", r.stdout)
 
     def test_new_without_git_leaves_nothing(self):
         wiki = self.tmp / "w"
