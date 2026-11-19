@@ -1,7 +1,7 @@
 {
   "name": "llm-wiki",
   "description": "A personal LLM Wiki: ingest sources, query, lint, prune and act on a git-versioned markdown knowledge base.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "CodeCampusCo"
   },

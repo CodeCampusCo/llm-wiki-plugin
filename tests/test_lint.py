@@ -58,6 +58,11 @@ class Lint(unittest.TestCase):
         self.assertEqual(len(details), 6)
         self.assertFalse(any("AKIAAAAA" in d for d in details))
 
+    def test_package_at_version_is_not_an_email(self):
+        self.put("index.md", "[[concepts/v]]\n")
+        self.put("concepts/v.md", GOOD + "lua@5.4, react-day-picker@8.10.1 and pkg@1.2.3-rc.1\n")
+        self.assertNotIn(("secret", "concepts/v.md"), self.kinds())
+
     def test_older_schema_version_points_to_changelog(self):
         found = lint_wiki.check(self.wiki(version=0))
         self.assertEqual([k for k, _, _ in found], ["schema"])
